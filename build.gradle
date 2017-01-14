@@ -28,5 +28,5 @@ task clean(type: Delete) {
 
 task wrapper(type: Wrapper) {
     gradleVersion = '3.3'
-    distributionUrl = "http://services.gradle.org/distributions/gradle-${gradleVersion}-all.zip"
+    distributionUrl = "https://services.gradle.org/distributions/gradle-${gradleVersion}-all.zip"
 }
