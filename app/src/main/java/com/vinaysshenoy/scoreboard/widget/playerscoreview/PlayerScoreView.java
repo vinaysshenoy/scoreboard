@@ -6,7 +6,6 @@ import android.content.res.Resources;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
-import android.graphics.PointF;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.os.Build;
@@ -50,7 +49,6 @@ public class PlayerScoreView extends View {
     private RectF trackBounds;
     private RectF pinBounds;
     private Rect totalScoreTextBounds;
-    private PointF pinCenter;
 
     private int currentScore;
     //Varies from 0F to 359F
@@ -116,8 +114,7 @@ public class PlayerScoreView extends View {
         totalScoreTextSize = spToPx(DEFAULT_TOTAL_SCORE_TEXTSIZE);
         pinRadius = dpToPx(DEFAULT_PIN_RADIUS);
 
-        currentScore = 10;
-
+        currentScore = 0;
         calculateAngularPositionOfPin();
 
         trackPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -143,7 +140,6 @@ public class PlayerScoreView extends View {
         trackBounds = new RectF();
         pinBounds = new RectF(0F, 0F, pinRadius, pinRadius);
         totalScoreTextBounds = new Rect();
-        pinCenter = new PointF();
     }
 
     public int getPointsPerRound() {
@@ -192,14 +188,18 @@ public class PlayerScoreView extends View {
         //Inset track to keep space for the pin
         trackBounds.inset(pinRadius, pinRadius);
 
-        updatePinCenterPosition();
+        updatePinBounds();
     }
 
-    private void updatePinCenterPosition() {
+    private void updatePinBounds() {
 
         final float trackRadius = trackBounds.width() / 2F;
-        pinCenter.x = (trackRadius * (float) cos(toRadians(pinAngularPosition))) + trackBounds.centerX();
-        pinCenter.y = (trackRadius * (float) sin(toRadians(pinAngularPosition))) + trackBounds.centerY();
+
+
+        final float cX = (trackRadius * (float) cos(toRadians(pinAngularPosition))) + trackBounds.centerX();
+        final float cY = (trackRadius * (float) sin(toRadians(pinAngularPosition))) + trackBounds.centerY();
+
+        pinBounds.set(cX - pinRadius, cY - pinRadius, cX + pinRadius, cY + pinRadius);
     }
 
     @Override
@@ -208,7 +208,7 @@ public class PlayerScoreView extends View {
         if (contentRect.height() > 0F && contentRect.width() > 0F) {
             canvas.drawColor(Color.LTGRAY);
             canvas.drawCircle(trackBounds.centerX(), trackBounds.centerY(), trackBounds.width() / 2F, trackPaint);
-            canvas.drawCircle(pinCenter.x, pinCenter.y, pinRadius, pointPinPaint);
+            canvas.drawCircle(pinBounds.centerX(), pinBounds.centerY(), pinRadius, pointPinPaint);
         }
     }
 }
