@@ -6,6 +6,7 @@ import android.content.res.Resources;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.PointF;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.os.Build;
@@ -17,6 +18,10 @@ import android.util.AttributeSet;
 import android.util.TypedValue;
 import android.view.View;
 
+import static java.lang.Math.cos;
+import static java.lang.Math.sin;
+import static java.lang.Math.toRadians;
+
 /**
  * Created by vinaysshenoy on 14/1/17.
  */
@@ -25,7 +30,7 @@ public class PlayerScoreView extends View {
 
     private static final int DEFAULT_POINTS_PER_ROUND = 30;
     private static final float DEFAULT_TRACK_STROKE_WIDTH = 2.0F; //dips
-    private static final float DEFAULT_PIN_RADIUS = 32.0F; //dips
+    private static final float DEFAULT_PIN_RADIUS = 16.0F; //dips
     private static final float DEFAULT_TOTAL_SCORE_TEXTSIZE = 16.0F; //sp
 
     private int pointsPerRound;
@@ -45,8 +50,11 @@ public class PlayerScoreView extends View {
     private RectF trackBounds;
     private RectF pinBounds;
     private Rect totalScoreTextBounds;
+    private PointF pinCenter;
 
     private int currentScore;
+    //Varies from 0F to 359F
+    private float pinAngularPosition;
 
     public PlayerScoreView(Context context) {
         super(context);
@@ -83,6 +91,23 @@ public class PlayerScoreView extends View {
         return TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, sp, Resources.getSystem().getDisplayMetrics());
     }
 
+    private static void adjustToBeSquare(@NonNull RectF rectF) {
+
+        final float width = rectF.width();
+        final float height = rectF.height();
+
+        if (width > height) {
+            //Adjust width to match height
+            final float delta = (width - height) / 2F;
+            rectF.inset(delta, 0F);
+
+        } else if (height > width) {
+            //Adjust height to match width
+            final float delta = (height - width) / 2F;
+            rectF.inset(0F, delta);
+        }
+    }
+
     private void init(@NonNull Context context, @Nullable AttributeSet attributeSet) {
 
         pointsPerRound = DEFAULT_POINTS_PER_ROUND;
@@ -90,6 +115,10 @@ public class PlayerScoreView extends View {
         trackStrokeWidth = dpToPx(DEFAULT_TRACK_STROKE_WIDTH);
         totalScoreTextSize = spToPx(DEFAULT_TOTAL_SCORE_TEXTSIZE);
         pinRadius = dpToPx(DEFAULT_PIN_RADIUS);
+
+        currentScore = 10;
+
+        calculateAngularPositionOfPin();
 
         trackPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         trackPaint.setStyle(Paint.Style.STROKE);
@@ -112,9 +141,9 @@ public class PlayerScoreView extends View {
         contentRect = new RectF();
         viewRect = new Rect();
         trackBounds = new RectF();
-        pinBounds = new RectF();
+        pinBounds = new RectF(0F, 0F, pinRadius, pinRadius);
         totalScoreTextBounds = new Rect();
-
+        pinCenter = new PointF();
     }
 
     public int getPointsPerRound() {
@@ -123,15 +152,8 @@ public class PlayerScoreView extends View {
 
     public void setPointsPerRound(int pointsPerRound) {
         this.pointsPerRound = pointsPerRound;
-        invalidate();
-    }
-
-    public float getDegreesPerPoint() {
-        return degreesPerPoint;
-    }
-
-    public void setDegreesPerPoint(float degreesPerPoint) {
-        this.degreesPerPoint = degreesPerPoint;
+        degreesPerPoint = 360.0F / pointsPerRound;
+        calculateAngularPositionOfPin();
         invalidate();
     }
 
@@ -141,7 +163,12 @@ public class PlayerScoreView extends View {
 
     public void setCurrentScore(int currentScore) {
         this.currentScore = currentScore;
+        calculateAngularPositionOfPin();
         invalidate();
+    }
+
+    private void calculateAngularPositionOfPin() {
+        pinAngularPosition = ((currentScore * degreesPerPoint) % 360.0F) - 90.0F;
     }
 
     @Override
@@ -157,23 +184,6 @@ public class PlayerScoreView extends View {
         precalculateItemBounds();
     }
 
-    private static void adjustToBeSquare(@NonNull RectF rectF) {
-
-        final float width = rectF.width();
-        final float height = rectF.height();
-
-        if(width > height) {
-            //Adjust width to match height
-            final float delta = (width - height) / 2F;
-            rectF.inset(delta, 0F);
-
-        } else if(height > width) {
-            //Adjust height to match width
-            final float delta = (height - width) / 2F;
-            rectF.inset(0F, delta);
-        }
-    }
-
     private void precalculateItemBounds() {
 
         trackBounds.set(contentRect);
@@ -181,14 +191,24 @@ public class PlayerScoreView extends View {
 
         //Inset track to keep space for the pin
         trackBounds.inset(pinRadius, pinRadius);
+
+        updatePinCenterPosition();
+    }
+
+    private void updatePinCenterPosition() {
+
+        final float trackRadius = trackBounds.width() / 2F;
+        pinCenter.x = (trackRadius * (float) cos(toRadians(pinAngularPosition))) + trackBounds.centerX();
+        pinCenter.y = (trackRadius * (float) sin(toRadians(pinAngularPosition))) + trackBounds.centerY();
     }
 
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
-        if(contentRect.height() > 0F && contentRect.width() > 0F) {
+        if (contentRect.height() > 0F && contentRect.width() > 0F) {
             canvas.drawColor(Color.LTGRAY);
             canvas.drawCircle(trackBounds.centerX(), trackBounds.centerY(), trackBounds.width() / 2F, trackPaint);
+            canvas.drawCircle(pinCenter.x, pinCenter.y, pinRadius, pointPinPaint);
         }
     }
 }
