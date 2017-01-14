@@ -51,6 +51,7 @@ public class PlayerScoreView extends View {
 
     private RectF trackBounds;
     private RectF pinBounds;
+    private RectF textDrawBounds;
     private Rect totalScoreTextBounds;
 
     private int currentScore;
@@ -145,6 +146,7 @@ public class PlayerScoreView extends View {
         trackBounds = new RectF();
         pinBounds = new RectF();
         totalScoreTextBounds = new Rect();
+        textDrawBounds = new RectF();
 
         updateCurrentScoreMessage();
     }
@@ -207,6 +209,12 @@ public class PlayerScoreView extends View {
         **/
         updateTrackBounds();
         updatePinBounds();
+        textDrawBounds.set(
+                trackBounds.centerX() - totalScoreTextBounds.width() / 2F,
+                trackBounds.centerY() - totalScoreTextBounds.height() / 2F,
+                trackBounds.centerX() + totalScoreTextBounds.width() / 2F,
+                trackBounds.centerY() + totalScoreTextBounds.height() / 2F
+        );
     }
 
     private void updateTrackBounds() {
@@ -219,6 +227,12 @@ public class PlayerScoreView extends View {
 
     private void updateTextBounds() {
         totalScorePaint.getTextBounds(currentScoreText, 0, currentScoreText.length(), totalScoreTextBounds);
+        textDrawBounds.set(
+                trackBounds.centerX() - totalScoreTextBounds.width() / 2F,
+                trackBounds.centerY() - totalScoreTextBounds.height() / 2F,
+                trackBounds.centerX() + totalScoreTextBounds.width() / 2F,
+                trackBounds.centerY() + totalScoreTextBounds.height() / 2F
+        );
     }
 
 
@@ -242,7 +256,6 @@ public class PlayerScoreView extends View {
             canvas.drawCircle(trackBounds.centerX(), trackBounds.centerY(), trackBounds.width() / 2F, trackPaint);
             canvas.drawCircle(pinBounds.centerX(), pinBounds.centerY(), pinRadius, pointPinPaint);
             canvas.drawText(currentScoreText, trackBounds.centerX(), trackBounds.centerY() + totalScoreTextBounds.height() / 4F, totalScorePaint);
-
         }
     }
 }
