@@ -10,6 +10,14 @@ android {
         versionCode rootProject.ext.versionCode
         versionName rootProject.ext.versionName
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+
+        jackOptions {
+            enabled true
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
     }
     buildTypes {
         release {
@@ -24,6 +32,17 @@ dependencies {
     androidTestCompile("com.android.support.test.espresso:espresso-core:${rootProject.ext.espressoVersion}", {
         exclude group: 'com.android.support', module: 'support-annotations'
     })
+
     compile "com.android.support:appcompat-v7:${rootProject.ext.supportLibVersion}"
+    compile "io.reactivex.rxjava2:rxjava:${rootProject.ext.rxJavaVersion}"
+    compile ("io.reactivex.rxjava2:rxandroid:${rootProject.ext.rxAndroidVersion}", {
+        exclude group: 'io.reactivex.rxjava2', module: 'rxjava'
+    })
+    compile "com.google.dagger:dagger:${rootProject.ext.daggerVersion}"
+
+    provided "javax.annotation:jsr250-api:${rootProject.ext.jsr250ApiVersion}"
+
+    annotationProcessor "com.google.dagger:dagger-compiler:${rootProject.ext.daggerVersion}"
+
     testCompile "junit:junit:${rootProject.ext.jUnitVersion}"
 }
