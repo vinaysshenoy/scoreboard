@@ -155,7 +155,7 @@ public class PlayerScoreView extends View {
      * </code>
      * </pre>
      */
-    public static boolean findUpdatedCenter(float centerX, float centerY, float newCenterX, float newCenterY, float radius, PointF holder) {
+    public static void findUpdatedCenter(float centerX, float centerY, float newCenterX, float newCenterY, float radius, PointF holder) {
         float baX = newCenterX - centerX;
         float baY = newCenterY - centerY;
 
@@ -169,8 +169,6 @@ public class PlayerScoreView extends View {
 
         holder.x = centerX - baX * scalingFactor;
         holder.y = centerY - baY * scalingFactor;
-
-        return true;
     }
 
     private void init(@NonNull Context context, @Nullable AttributeSet attributeSet) {
@@ -316,47 +314,29 @@ public class PlayerScoreView extends View {
 
             case MotionEvent.ACTION_MOVE: {
                 if (TouchState.TOUCH_PIN == touchState) {
-                    if (handlePinMovedBy(curTouchPoint.x - prevTouchPoint.x, curTouchPoint.y - prevTouchPoint.y)) {
-                        prevTouchPoint.set(curTouchPoint);
-                    } else {
-                        touchState = TouchState.TOUCH_NOTHING;
-                    }
+                    handlePinMovedBy(curTouchPoint.x - prevTouchPoint.x, curTouchPoint.y - prevTouchPoint.y);
+                    prevTouchPoint.set(curTouchPoint);
+
+                    handled = true;
+                    invalidate();
+                    break;
                 }
-                handled = true;
-                invalidate();
-                break;
             }
         }
 
         return handled || super.onTouchEvent(event);
     }
 
-    private boolean handlePinMovedBy(float dX, float dY) {
+    private void handlePinMovedBy(float dX, float dY) {
 
-        boolean moved = true;
 
         final float newCenterX = pinBounds.centerX() + dX;
         final float newCenterY = pinBounds.centerY() + dY;
 
-        /*
-        * Ensure that deltas are not too large. Do this by checking to see
-        * if the new center lies within the previous bounds or not
-        *
-        **/
-        if (pinBounds.contains(newCenterX, newCenterY)) {
-            newPinCenterHolder.set(newCenterX, newCenterY);
-            moved = findUpdatedCenter(trackBounds.centerX(), trackBounds.centerY(), newCenterX, newCenterY, trackBounds.width() / 2, newPinCenterHolder);
-            if (moved) {
-                pinBounds.set(newPinCenterHolder.x - pinBounds.width() / 2F, newPinCenterHolder.y - pinBounds.height() / 2F, newPinCenterHolder.x + pinBounds.width() / 2F, newPinCenterHolder.y + pinBounds.height() / 2F);
-            }
-        }
+        newPinCenterHolder.set(newCenterX, newCenterY);
+        findUpdatedCenter(trackBounds.centerX(), trackBounds.centerY(), newCenterX, newCenterY, trackBounds.width() / 2, newPinCenterHolder);
+        pinBounds.set(newPinCenterHolder.x - pinBounds.width() / 2F, newPinCenterHolder.y - pinBounds.height() / 2F, newPinCenterHolder.x + pinBounds.width() / 2F, newPinCenterHolder.y + pinBounds.height() / 2F);
 
-        /*
-        * Check if the updated radius pin is still intersecting the track circle. Allow offsetting
-        * the Pin only if it is
-        */
-
-        return moved;
     }
 
     private void updateTrackBounds() {
