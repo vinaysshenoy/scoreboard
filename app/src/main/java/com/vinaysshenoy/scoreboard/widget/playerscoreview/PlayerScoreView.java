@@ -3,6 +3,7 @@ package com.vinaysshenoy.scoreboard.widget.playerscoreview;
 import android.annotation.TargetApi;
 import android.content.Context;
 import android.content.res.Resources;
+import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
@@ -24,6 +25,7 @@ public class PlayerScoreView extends View {
 
     private static final int DEFAULT_POINTS_PER_ROUND = 30;
     private static final float DEFAULT_TRACK_STROKE_WIDTH = 2.0F; //dips
+    private static final float DEFAULT_PIN_RADIUS = 32.0F; //dips
     private static final float DEFAULT_TOTAL_SCORE_TEXTSIZE = 16.0F; //sp
 
     private int pointsPerRound;
@@ -35,6 +37,7 @@ public class PlayerScoreView extends View {
 
     private float trackStrokeWidth;
     private float totalScoreTextSize;
+    private float pinRadius;
 
     private RectF contentRect;
     private Rect viewRect;
@@ -86,6 +89,7 @@ public class PlayerScoreView extends View {
         degreesPerPoint = 360.0F / pointsPerRound;
         trackStrokeWidth = dpToPx(DEFAULT_TRACK_STROKE_WIDTH);
         totalScoreTextSize = spToPx(DEFAULT_TOTAL_SCORE_TEXTSIZE);
+        pinRadius = dpToPx(DEFAULT_PIN_RADIUS);
 
         trackPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         trackPaint.setStyle(Paint.Style.STROKE);
@@ -149,5 +153,42 @@ public class PlayerScoreView extends View {
         contentRect.right -= ViewCompat.getPaddingEnd(this);
         contentRect.top += getPaddingTop();
         contentRect.bottom -= getPaddingBottom();
+
+        precalculateItemBounds();
+    }
+
+    private static void adjustToBeSquare(@NonNull RectF rectF) {
+
+        final float width = rectF.width();
+        final float height = rectF.height();
+
+        if(width > height) {
+            //Adjust width to match height
+            final float delta = (width - height) / 2F;
+            rectF.inset(delta, 0F);
+
+        } else if(height > width) {
+            //Adjust height to match width
+            final float delta = (height - width) / 2F;
+            rectF.inset(0F, delta);
+        }
+    }
+
+    private void precalculateItemBounds() {
+
+        trackBounds.set(contentRect);
+        adjustToBeSquare(trackBounds);
+
+        //Inset track to keep space for the pin
+        trackBounds.inset(pinRadius, pinRadius);
+    }
+
+    @Override
+    protected void onDraw(Canvas canvas) {
+        super.onDraw(canvas);
+        if(contentRect.height() > 0F && contentRect.width() > 0F) {
+            canvas.drawColor(Color.LTGRAY);
+            canvas.drawCircle(trackBounds.centerX(), trackBounds.centerY(), trackBounds.width() / 2F, trackPaint);
+        }
     }
 }
