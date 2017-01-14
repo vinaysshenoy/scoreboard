@@ -58,6 +58,7 @@ public class PlayerScoreView extends View {
     private Rect totalScoreTextBounds;
     private PointF prevTouchPoint;
     private PointF curTouchPoint;
+    private PointF newPinCenterHolder;
     private int currentScore;
     private String currentScoreText;
     //Varies from 0F to 359F
@@ -115,6 +116,63 @@ public class PlayerScoreView extends View {
         }
     }
 
+    /**
+     * This is a method simplified for our use case taken from StackOverflow. The simplifications
+     * mostly stem from the fact that PointA and center are the same.
+     * <br/>
+     * <a href="http://stackoverflow.com/questions/13053061/circle-line-intersection-points">LINK</a>
+     * <pre>
+     * <code>
+     * public static List < Point > getCircleLineIntersectionPoint(Point pointA, Point pointB, Point center, double radius) {
+     * double baX = pointB.x - pointA.x;
+     * double baY = pointB.y - pointA.y;
+     * double caX = center.x - pointA.x;
+     * double caY = center.y - pointA.y;
+     *
+     * double a = baX * baX + baY * baY;
+     * double bBy2 = baX * caX + baY * caY;
+     * double c = caX * caX + caY * caY - radius * radius;
+     *
+     * double pBy2 = bBy2 / a;
+     * double q = c / a;
+     *
+     * double disc = pBy2 * pBy2 - q;
+     * if (disc < 0) {
+     * return Collections.emptyList();
+     * }
+     * // if disc == 0 ... dealt with later
+     * double tmpSqrt = Math.sqrt(disc);
+     * double abScalingFactor1 = -pBy2 + tmpSqrt;
+     * double abScalingFactor2 = -pBy2 - tmpSqrt;
+     *
+     * Point p1 = new Point(pointA.x - baX * abScalingFactor1, pointA.y - baY * abScalingFactor1);
+     * if (disc == 0) { // abScalingFactor1 == abScalingFactor2
+     * return Collections.singletonList(p1);
+     * }
+     * Point p2 = new Point(pointA.x - baX * abScalingFactor2, pointA.y - baY * abScalingFactor2);
+     * return Arrays.asList(p1, p2);
+     * }
+     * </code>
+     * </pre>
+     */
+    public static boolean findUpdatedCenter(float centerX, float centerY, float newCenterX, float newCenterY, float radius, PointF holder) {
+        float baX = newCenterX - centerX;
+        float baY = newCenterY - centerY;
+
+        float a = baX * baX + baY * baY;
+        float c = -radius * radius;
+
+        float q = c / a;
+
+        float tmpSqrt = (float) Math.sqrt(-q);
+        float scalingFactor = -tmpSqrt;
+
+        holder.x = centerX - baX * scalingFactor;
+        holder.y = centerY - baY * scalingFactor;
+
+        return true;
+    }
+
     private void init(@NonNull Context context, @Nullable AttributeSet attributeSet) {
 
         pointsPerRound = DEFAULT_POINTS_PER_ROUND;
@@ -153,6 +211,7 @@ public class PlayerScoreView extends View {
         textDrawBounds = new RectF();
         prevTouchPoint = new PointF();
         curTouchPoint = new PointF();
+        newPinCenterHolder = new PointF();
 
         touchState = TouchState.TOUCH_NOTHING;
 
@@ -285,8 +344,11 @@ public class PlayerScoreView extends View {
         *
         **/
         if (pinBounds.contains(newCenterX, newCenterY)) {
-            pinBounds.offset(dX, dY);
-            moved = true;
+            newPinCenterHolder.set(newCenterX, newCenterY);
+            moved = findUpdatedCenter(trackBounds.centerX(), trackBounds.centerY(), newCenterX, newCenterY, trackBounds.width() / 2, newPinCenterHolder);
+            if (moved) {
+                pinBounds.set(newPinCenterHolder.x - pinBounds.width() / 2F, newPinCenterHolder.y - pinBounds.height() / 2F, newPinCenterHolder.x + pinBounds.width() / 2F, newPinCenterHolder.y + pinBounds.height() / 2F);
+            }
         }
 
         /*
@@ -337,7 +399,6 @@ public class PlayerScoreView extends View {
 
         }
     }
-
 
     @IntDef({TouchState.TOUCH_NOTHING, TouchState.TOUCH_PIN})
     private @interface TouchState {
