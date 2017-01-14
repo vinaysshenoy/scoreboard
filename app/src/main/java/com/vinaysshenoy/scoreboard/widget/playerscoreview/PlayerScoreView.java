@@ -8,6 +8,7 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.RectF;
+import android.graphics.Typeface;
 import android.os.Build;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -16,6 +17,8 @@ import android.text.TextPaint;
 import android.util.AttributeSet;
 import android.util.TypedValue;
 import android.view.View;
+
+import java.util.Locale;
 
 import static java.lang.Math.cos;
 import static java.lang.Math.sin;
@@ -30,7 +33,7 @@ public class PlayerScoreView extends View {
     private static final int DEFAULT_POINTS_PER_ROUND = 30;
     private static final float DEFAULT_TRACK_STROKE_WIDTH = 2.0F; //dips
     private static final float DEFAULT_PIN_RADIUS = 16.0F; //dips
-    private static final float DEFAULT_TOTAL_SCORE_TEXTSIZE = 16.0F; //sp
+    private static final float DEFAULT_SCORE_TEXT_SIZE = 48.0F; //sp
 
     private int pointsPerRound;
     private float degreesPerPoint;
@@ -51,6 +54,7 @@ public class PlayerScoreView extends View {
     private Rect totalScoreTextBounds;
 
     private int currentScore;
+    private String currentScoreText;
     //Varies from 0F to 359F
     private float pinAngularPosition;
 
@@ -111,10 +115,10 @@ public class PlayerScoreView extends View {
         pointsPerRound = DEFAULT_POINTS_PER_ROUND;
         degreesPerPoint = 360.0F / pointsPerRound;
         trackStrokeWidth = dpToPx(DEFAULT_TRACK_STROKE_WIDTH);
-        totalScoreTextSize = spToPx(DEFAULT_TOTAL_SCORE_TEXTSIZE);
         pinRadius = dpToPx(DEFAULT_PIN_RADIUS);
+        totalScoreTextSize = spToPx(DEFAULT_SCORE_TEXT_SIZE);
 
-        currentScore = 0;
+        currentScore = 250;
         calculateAngularPositionOfPin();
 
         trackPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -135,11 +139,14 @@ public class PlayerScoreView extends View {
         totalScorePaint.setTextSize(totalScoreTextSize);
         totalScorePaint.setTextAlign(Paint.Align.CENTER);
 
+
         contentRect = new RectF();
         viewRect = new Rect();
         trackBounds = new RectF();
-        pinBounds = new RectF(0F, 0F, pinRadius, pinRadius);
+        pinBounds = new RectF();
         totalScoreTextBounds = new Rect();
+
+        updateCurrentScoreMessage();
     }
 
     public int getPointsPerRound() {
@@ -160,7 +167,19 @@ public class PlayerScoreView extends View {
     public void setCurrentScore(int currentScore) {
         this.currentScore = currentScore;
         calculateAngularPositionOfPin();
+        updateCurrentScoreMessage();
         invalidate();
+    }
+
+    public void setScoreCounterTypeface(@NonNull Typeface typeface) {
+        totalScorePaint.setTypeface(typeface);
+        updateTextBounds();
+        invalidate();
+    }
+
+    private void updateCurrentScoreMessage() {
+        currentScoreText = String.format(Locale.getDefault(), "%d", currentScore);
+        updateTextBounds();
     }
 
     private void calculateAngularPositionOfPin() {
@@ -182,14 +201,26 @@ public class PlayerScoreView extends View {
 
     private void precalculateItemBounds() {
 
+        /*
+        * Note: Order of operations is important as each uses values
+        * calculated in the previous step
+        **/
+        updateTrackBounds();
+        updatePinBounds();
+    }
+
+    private void updateTrackBounds() {
         trackBounds.set(contentRect);
         adjustToBeSquare(trackBounds);
 
         //Inset track to keep space for the pin
         trackBounds.inset(pinRadius, pinRadius);
-
-        updatePinBounds();
     }
+
+    private void updateTextBounds() {
+        totalScorePaint.getTextBounds(currentScoreText, 0, currentScoreText.length(), totalScoreTextBounds);
+    }
+
 
     private void updatePinBounds() {
 
@@ -202,6 +233,7 @@ public class PlayerScoreView extends View {
         pinBounds.set(cX - pinRadius, cY - pinRadius, cX + pinRadius, cY + pinRadius);
     }
 
+
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
@@ -209,6 +241,8 @@ public class PlayerScoreView extends View {
             canvas.drawColor(Color.LTGRAY);
             canvas.drawCircle(trackBounds.centerX(), trackBounds.centerY(), trackBounds.width() / 2F, trackPaint);
             canvas.drawCircle(pinBounds.centerX(), pinBounds.centerY(), pinRadius, pointPinPaint);
+            canvas.drawText(currentScoreText, trackBounds.centerX(), trackBounds.centerY() + totalScoreTextBounds.height() / 4F, totalScorePaint);
+
         }
     }
 }
