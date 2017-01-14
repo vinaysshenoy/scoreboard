@@ -6,16 +6,20 @@ import android.content.res.Resources;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.PointF;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.os.Build;
+import android.support.annotation.IntDef;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.view.ViewCompat;
 import android.text.TextPaint;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.util.TypedValue;
+import android.view.MotionEvent;
 import android.view.View;
 
 import java.util.Locale;
@@ -30,30 +34,30 @@ import static java.lang.Math.toRadians;
 
 public class PlayerScoreView extends View {
 
+    private static final String TAG = "PlayerScoreView";
+
     private static final int DEFAULT_POINTS_PER_ROUND = 30;
     private static final float DEFAULT_TRACK_STROKE_WIDTH = 2.0F; //dips
     private static final float DEFAULT_PIN_RADIUS = 16.0F; //dips
     private static final float DEFAULT_SCORE_TEXT_SIZE = 48.0F; //sp
-
+    @TouchState
+    private int touchState;
     private int pointsPerRound;
     private float degreesPerPoint;
-
     private Paint trackPaint;
     private Paint pointPinPaint;
     private TextPaint totalScorePaint;
-
     private float trackStrokeWidth;
     private float totalScoreTextSize;
     private float pinRadius;
-
     private RectF contentRect;
     private Rect viewRect;
-
     private RectF trackBounds;
     private RectF pinBounds;
     private RectF textDrawBounds;
     private Rect totalScoreTextBounds;
-
+    private PointF prevTouchPoint;
+    private PointF curTouchPoint;
     private int currentScore;
     private String currentScoreText;
     //Varies from 0F to 359F
@@ -147,6 +151,10 @@ public class PlayerScoreView extends View {
         pinBounds = new RectF();
         totalScoreTextBounds = new Rect();
         textDrawBounds = new RectF();
+        prevTouchPoint = new PointF();
+        curTouchPoint = new PointF();
+
+        touchState = TouchState.TOUCH_NOTHING;
 
         updateCurrentScoreMessage();
     }
@@ -217,6 +225,78 @@ public class PlayerScoreView extends View {
         );
     }
 
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+
+        boolean handled = false;
+
+        final float eventX = event.getX();
+        final float eventY = event.getY();
+        curTouchPoint.set(eventX, eventY);
+
+        switch (event.getActionMasked()) {
+
+            case MotionEvent.ACTION_DOWN: {
+                if (pinBounds.contains(eventX, eventY)) {
+                    touchState = TouchState.TOUCH_PIN;
+                }
+                prevTouchPoint.set(curTouchPoint);
+                handled = true;
+                invalidate();
+                break;
+            }
+
+            case MotionEvent.ACTION_CANCEL:
+            case MotionEvent.ACTION_UP: {
+                touchState = TouchState.TOUCH_NOTHING;
+                Log.d(TAG, "onTouchEvent: Complete");
+                handled = true;
+                invalidate();
+                break;
+            }
+
+            case MotionEvent.ACTION_MOVE: {
+                if (TouchState.TOUCH_PIN == touchState) {
+                    if (handlePinMovedBy(curTouchPoint.x - prevTouchPoint.x, curTouchPoint.y - prevTouchPoint.y)) {
+                        prevTouchPoint.set(curTouchPoint);
+                    } else {
+                        touchState = TouchState.TOUCH_NOTHING;
+                    }
+                }
+                handled = true;
+                invalidate();
+                break;
+            }
+        }
+
+        return handled || super.onTouchEvent(event);
+    }
+
+    private boolean handlePinMovedBy(float dX, float dY) {
+
+        boolean moved = true;
+
+        final float newCenterX = pinBounds.centerX() + dX;
+        final float newCenterY = pinBounds.centerY() + dY;
+
+        /*
+        * Ensure that deltas are not too large. Do this by checking to see
+        * if the new center lies within the previous bounds or not
+        *
+        **/
+        if (pinBounds.contains(newCenterX, newCenterY)) {
+            pinBounds.offset(dX, dY);
+            moved = true;
+        }
+
+        /*
+        * Check if the updated radius pin is still intersecting the track circle. Allow offsetting
+        * the Pin only if it is
+        */
+
+        return moved;
+    }
+
     private void updateTrackBounds() {
         trackBounds.set(contentRect);
         adjustToBeSquare(trackBounds);
@@ -235,7 +315,6 @@ public class PlayerScoreView extends View {
         );
     }
 
-
     private void updatePinBounds() {
 
         final float trackRadius = trackBounds.width() / 2F;
@@ -247,7 +326,6 @@ public class PlayerScoreView extends View {
         pinBounds.set(cX - pinRadius, cY - pinRadius, cX + pinRadius, cY + pinRadius);
     }
 
-
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
@@ -256,6 +334,15 @@ public class PlayerScoreView extends View {
             canvas.drawCircle(trackBounds.centerX(), trackBounds.centerY(), trackBounds.width() / 2F, trackPaint);
             canvas.drawCircle(pinBounds.centerX(), pinBounds.centerY(), pinRadius, pointPinPaint);
             canvas.drawText(currentScoreText, trackBounds.centerX(), trackBounds.centerY() + totalScoreTextBounds.height() / 4F, totalScorePaint);
+
         }
     }
+
+
+    @IntDef({TouchState.TOUCH_NOTHING, TouchState.TOUCH_PIN})
+    private @interface TouchState {
+        int TOUCH_NOTHING = -1;
+        int TOUCH_PIN = 0;
+    }
+
 }
