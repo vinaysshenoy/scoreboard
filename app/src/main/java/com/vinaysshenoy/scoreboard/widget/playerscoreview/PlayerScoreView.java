@@ -171,6 +171,16 @@ public class PlayerScoreView extends View {
         holder.y = centerY - baY * scalingFactor;
     }
 
+    private static float angleBetween2Lines(float aX1, float aY1, float aX2, float aY2, float bX1, float bY1, float bX2, float bY2) {
+        final float angle1 = (float) Math.atan2(aY2 - aY1, aX1 - aX2);
+        final float angle2 = (float) Math.atan2(bY2 - bY1, bX1 - bX2);
+        float calculatedAngle = (float) Math.toDegrees(angle1 - angle2);
+        if (calculatedAngle < 0) {
+            calculatedAngle += 359;
+        }
+        return calculatedAngle;
+    }
+
     private void init(@NonNull Context context, @Nullable AttributeSet attributeSet) {
 
         pointsPerRound = DEFAULT_POINTS_PER_ROUND;
@@ -316,7 +326,7 @@ public class PlayerScoreView extends View {
                 if (TouchState.TOUCH_PIN == touchState) {
                     handlePinMovedBy(curTouchPoint.x - prevTouchPoint.x, curTouchPoint.y - prevTouchPoint.y);
                     prevTouchPoint.set(curTouchPoint);
-
+                    recalculateNewScore();
                     handled = true;
                     invalidate();
                     break;
@@ -325,6 +335,14 @@ public class PlayerScoreView extends View {
         }
 
         return handled || super.onTouchEvent(event);
+    }
+
+    private void recalculateNewScore() {
+
+        final float angle = angleBetween2Lines(
+                trackBounds.centerX(), trackBounds.centerY(), trackBounds.centerX(), trackBounds.top,
+                trackBounds.centerX(), trackBounds.centerY(), pinBounds.centerX(), pinBounds.centerY());
+
     }
 
     private void handlePinMovedBy(float dX, float dY) {
