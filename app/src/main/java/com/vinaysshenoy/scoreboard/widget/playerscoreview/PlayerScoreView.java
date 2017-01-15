@@ -24,6 +24,7 @@ import android.view.View;
 
 import java.util.Locale;
 
+import static java.lang.Math.atan2;
 import static java.lang.Math.cos;
 import static java.lang.Math.sin;
 import static java.lang.Math.toRadians;
@@ -53,12 +54,14 @@ public class PlayerScoreView extends View {
     private RectF contentRect;
     private Rect viewRect;
     private RectF trackBounds;
-    private RectF pinBounds;
+    private RectF currentPinBounds;
     private RectF textDrawBounds;
+
     private Rect totalScoreTextBounds;
     private PointF prevTouchPoint;
     private PointF curTouchPoint;
     private PointF newPinCenterHolder;
+    private PointF pinCenterForCurrentScore;
     private int currentScore;
     private String currentScoreText;
     //Varies from 0F to 359F
@@ -172,13 +175,25 @@ public class PlayerScoreView extends View {
     }
 
     private static float angleBetween2Lines(float aX1, float aY1, float aX2, float aY2, float bX1, float bY1, float bX2, float bY2) {
-        final float angle1 = (float) Math.atan2(aY2 - aY1, aX1 - aX2);
+
+        final float a = aX2 - aX1;
+        final float b = aY2 - aY1;
+        final float c = bX2 - bX1;
+        final float d = bY2 - bY1;
+
+        final double aTanA = atan2(a, b);
+        final double aTanB = atan2(c, d);
+
+        Log.d(TAG, "ATanA: " + aTanA + " aTanB: " + aTanB);
+
+        return (float) Math.toDegrees(aTanA - aTanB);
+        /*final float angle1 = (float) Math.atan2(aY2 - aY1, aX1 - aX2);
         final float angle2 = (float) Math.atan2(bY2 - bY1, bX1 - bX2);
         float calculatedAngle = (float) Math.toDegrees(angle1 - angle2);
         if (calculatedAngle < 0) {
             calculatedAngle += 359;
         }
-        return calculatedAngle;
+        return calculatedAngle;*/
     }
 
     private void init(@NonNull Context context, @Nullable AttributeSet attributeSet) {
@@ -189,7 +204,7 @@ public class PlayerScoreView extends View {
         pinRadius = dpToPx(DEFAULT_PIN_RADIUS);
         totalScoreTextSize = spToPx(DEFAULT_SCORE_TEXT_SIZE);
 
-        currentScore = 250;
+        currentScore = 0;
         calculateAngularPositionOfPin();
 
         trackPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -214,12 +229,13 @@ public class PlayerScoreView extends View {
         contentRect = new RectF();
         viewRect = new Rect();
         trackBounds = new RectF();
-        pinBounds = new RectF();
+        currentPinBounds = new RectF();
         totalScoreTextBounds = new Rect();
         textDrawBounds = new RectF();
         prevTouchPoint = new PointF();
         curTouchPoint = new PointF();
         newPinCenterHolder = new PointF();
+        pinCenterForCurrentScore = new PointF();
 
         touchState = TouchState.TOUCH_NOTHING;
 
@@ -260,7 +276,50 @@ public class PlayerScoreView extends View {
     }
 
     private void calculateAngularPositionOfPin() {
-        pinAngularPosition = ((currentScore * degreesPerPoint) % 360.0F) - 90.0F;
+        pinAngularPosition = ((currentScore * degreesPerPoint) % 360.0F);
+
+    }
+
+    private boolean recalculateNewScore() {
+
+        final float angle = angleBetween2Lines(
+                trackBounds.centerX(), trackBounds.centerY(), pinCenterForCurrentScore.x, pinCenterForCurrentScore.y,
+                trackBounds.centerX(), trackBounds.centerY(), currentPinBounds.centerX(), currentPinBounds.centerY());
+
+
+        float newAngularPosition = pinAngularPosition;
+        if (Math.abs(angle) > degreesPerPoint) {
+            int multiplier = currentScore / pointsPerRound;
+
+            Log.d(TAG, "Angle: " + angle + " Angular position: " + newAngularPosition);
+            if (angle > 0) {
+                //Score has to be increased
+                newAngularPosition += degreesPerPoint;
+            } else if (angle < 0) {
+                //Score has to be decreased
+                newAngularPosition -= degreesPerPoint;
+            }
+
+            Log.d(TAG, "Updated Angular Position: " + newAngularPosition);
+            //Handle boundary conditions where a new loop can start
+            if (newAngularPosition < 0F) {
+                newAngularPosition += 359F;
+                multiplier--;
+            } else if (newAngularPosition > 359F) {
+                newAngularPosition = 359F - newAngularPosition;
+                multiplier++;
+            }
+
+            currentScore = (int) ((multiplier * pointsPerRound) + (newAngularPosition / degreesPerPoint));
+            Log.d(TAG, "New Score: " + currentScore);
+            updateCurrentScoreMessage();
+            calculateAngularPositionOfPin();
+
+            return true;
+        }
+
+        return false;
+
     }
 
     @Override
@@ -304,7 +363,7 @@ public class PlayerScoreView extends View {
         switch (event.getActionMasked()) {
 
             case MotionEvent.ACTION_DOWN: {
-                if (pinBounds.contains(eventX, eventY)) {
+                if (currentPinBounds.contains(eventX, eventY)) {
                     touchState = TouchState.TOUCH_PIN;
                 }
                 prevTouchPoint.set(curTouchPoint);
@@ -326,9 +385,18 @@ public class PlayerScoreView extends View {
                 if (TouchState.TOUCH_PIN == touchState) {
                     handlePinMovedBy(curTouchPoint.x - prevTouchPoint.x, curTouchPoint.y - prevTouchPoint.y);
                     prevTouchPoint.set(curTouchPoint);
-                    recalculateNewScore();
+                    if (recalculateNewScore()) {
+                        /*
+                        * Calling a layout here because the score has been update, so we want
+                        * the center point of the Pin to take into account the new score,
+                        * which is done in onLayout()
+                        * */
+                        requestLayout();
+                        invalidate();
+                    } else {
+                        invalidate();
+                    }
                     handled = true;
-                    invalidate();
                     break;
                 }
             }
@@ -337,23 +405,15 @@ public class PlayerScoreView extends View {
         return handled || super.onTouchEvent(event);
     }
 
-    private void recalculateNewScore() {
-
-        final float angle = angleBetween2Lines(
-                trackBounds.centerX(), trackBounds.centerY(), trackBounds.centerX(), trackBounds.top,
-                trackBounds.centerX(), trackBounds.centerY(), pinBounds.centerX(), pinBounds.centerY());
-
-    }
-
     private void handlePinMovedBy(float dX, float dY) {
 
 
-        final float newCenterX = pinBounds.centerX() + dX;
-        final float newCenterY = pinBounds.centerY() + dY;
+        final float newCenterX = currentPinBounds.centerX() + dX;
+        final float newCenterY = currentPinBounds.centerY() + dY;
 
         newPinCenterHolder.set(newCenterX, newCenterY);
         findUpdatedCenter(trackBounds.centerX(), trackBounds.centerY(), newCenterX, newCenterY, trackBounds.width() / 2, newPinCenterHolder);
-        pinBounds.set(newPinCenterHolder.x - pinBounds.width() / 2F, newPinCenterHolder.y - pinBounds.height() / 2F, newPinCenterHolder.x + pinBounds.width() / 2F, newPinCenterHolder.y + pinBounds.height() / 2F);
+        currentPinBounds.set(newPinCenterHolder.x - currentPinBounds.width() / 2F, newPinCenterHolder.y - currentPinBounds.height() / 2F, newPinCenterHolder.x + currentPinBounds.width() / 2F, newPinCenterHolder.y + currentPinBounds.height() / 2F);
 
     }
 
@@ -383,7 +443,8 @@ public class PlayerScoreView extends View {
         final float cX = (trackRadius * (float) cos(toRadians(pinAngularPosition))) + trackBounds.centerX();
         final float cY = (trackRadius * (float) sin(toRadians(pinAngularPosition))) + trackBounds.centerY();
 
-        pinBounds.set(cX - pinRadius, cY - pinRadius, cX + pinRadius, cY + pinRadius);
+        currentPinBounds.set(cX - pinRadius, cY - pinRadius, cX + pinRadius, cY + pinRadius);
+        pinCenterForCurrentScore.set(cX, cY);
     }
 
     @Override
@@ -392,8 +453,12 @@ public class PlayerScoreView extends View {
         if (contentRect.height() > 0F && contentRect.width() > 0F) {
             canvas.drawColor(Color.LTGRAY);
             canvas.drawCircle(trackBounds.centerX(), trackBounds.centerY(), trackBounds.width() / 2F, trackPaint);
-            canvas.drawCircle(pinBounds.centerX(), pinBounds.centerY(), pinRadius, pointPinPaint);
+            canvas.drawCircle(currentPinBounds.centerX(), currentPinBounds.centerY(), pinRadius, pointPinPaint);
             canvas.drawText(currentScoreText, trackBounds.centerX(), trackBounds.centerY() + totalScoreTextBounds.height() / 4F, totalScorePaint);
+
+            pointPinPaint.setColor(Color.WHITE);
+            canvas.drawCircle(pinCenterForCurrentScore.x, pinCenterForCurrentScore.y, dpToPx(8F), pointPinPaint);
+            pointPinPaint.setColor(Color.BLACK);
 
         }
     }
